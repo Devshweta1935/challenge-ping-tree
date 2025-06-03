@@ -135,7 +135,7 @@ test.serial.cb('PUT /api/target/:id updates a target', function (t) {
     var id = body.id
     var updateUrl = '/api/target/' + id
     var update = { value: '0.99', url: 'http://updated.com' }
-    var updateStream = servertest(server(), updateUrl, { method: 'POST', encoding: 'json' })
+    var updateStream = servertest(server(), updateUrl, { method: 'PUT', encoding: 'json' })
     updateStream.on('data', function (res2) {
       let body2 = res2.body
       if (!body2 && Buffer.isBuffer(res2)) {
