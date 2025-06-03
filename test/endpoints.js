@@ -163,3 +163,75 @@ test.serial.cb('PUT /api/target/:id updates a target', function (t) {
   })
   stream.end(JSON.stringify(data))
 })
+
+test.serial.cb('POST /route returns accept for matching target', function (t) {
+  var createUrl = '/api/targets'
+  var target = {
+    url: 'http://route.com',
+    value: '1.00',
+    maxAcceptsPerDay: '2',
+    accept: {
+      geoState: { $in: ['ca'] },
+      hour: { $in: ['15'] }
+    }
+  }
+  var stream = servertest(server(), createUrl, { method: 'POST', encoding: 'json' })
+  stream.on('data', function (res) {
+    var routeUrl = '/route'
+    var visitor = {
+      geoState: 'ca',
+      publisher: 'abc',
+      timestamp: new Date(Date.UTC(2020, 0, 1, 15)).toISOString()
+    }
+    var routeStream = servertest(server(), routeUrl, { method: 'POST', encoding: 'json' })
+    routeStream.on('data', function (res2) {
+      let body2 = res2.body
+      if (!body2 && Buffer.isBuffer(res2)) {
+        try {
+          body2 = JSON.parse(res2.toString())
+        } catch (e) {
+          console.error('Failed to parse buffer as JSON:', res2)
+        }
+      }
+      if (!body2) {
+        console.error('DEBUG: No response body. Full response:', res2)
+        t.fail('No response body')
+        t.end()
+        return
+      }
+      t.is(body2.decision, 'accept', 'decision is accept')
+      t.is(body2.url, target.url, 'url matches')
+      t.end()
+    })
+    routeStream.end(JSON.stringify(visitor))
+  })
+  stream.end(JSON.stringify(target))
+})
+
+test.serial.cb('POST /route returns reject for non-matching target', function (t) {
+  var routeUrl = '/route'
+  var visitor = {
+    geoState: 'ny',
+    publisher: 'abc',
+    timestamp: new Date(Date.UTC(2020, 0, 1, 10)).toISOString()
+  }
+  var routeStream = servertest(server(), routeUrl, { method: 'POST', encoding: 'json' })
+  routeStream.on('data', function (res2) {
+    let body2 = res2.body
+    if (!body2 && Buffer.isBuffer(res2)) {
+      try {
+        body2 = JSON.parse(res2.toString())
+      } catch (e) {
+        console.error('Failed to parse buffer as JSON:', res2)
+      }
+    }
+    if (!body2) {
+      console.error('DEBUG: No response body. Full response:', res2)
+      t.fail('No response body')
+      t.end()
+      return
+    }
+    t.end()
+  })
+  routeStream.end(JSON.stringify(visitor))
+})
