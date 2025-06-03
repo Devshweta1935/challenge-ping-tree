@@ -65,3 +65,42 @@ test.serial.cb('GET /api/targets returns all targets', function (t) {
     t.end()
   })
 })
+
+test.serial.cb('GET /api/target/:id returns a target by id', function (t) {
+  var createUrl = '/api/targets'
+  var data = {
+    url: 'http://example.com/2',
+    value: '0.75',
+    maxAcceptsPerDay: '5',
+    accept: {
+      geoState: { $in: ['tx'] },
+      hour: { $in: ['10', '11'] }
+    }
+  }
+  var stream = servertest(server(), createUrl, { method: 'POST', encoding: 'json' })
+  stream.on('data', function (res) {
+    let body = res.body
+    if (!body && Buffer.isBuffer(res)) {
+      try {
+        body = JSON.parse(res.toString())
+      } catch (e) {
+        console.error('Failed to parse buffer as JSON:', res)
+      }
+    }
+    if (!body) {
+      console.error('DEBUG: No response body. Full response:', res)
+      t.fail('No response body')
+      t.end()
+      return
+    }
+    var id = body.id
+    var getUrl = '/api/target/' + id
+    servertest(server(), getUrl, { method: 'GET', encoding: 'json' }, function (err, res2) {
+      t.falsy(err, 'no error')
+      t.is(res2.body.id, id, 'id matches')
+      t.is(res2.body.url, data.url, 'url matches')
+      t.end()
+    })
+  })
+  stream.end(JSON.stringify(data))
+})
