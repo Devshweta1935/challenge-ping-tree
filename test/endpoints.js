@@ -104,3 +104,62 @@ test.serial.cb('GET /api/target/:id returns a target by id', function (t) {
   })
   stream.end(JSON.stringify(data))
 })
+
+test.serial.cb('PUT /api/target/:id updates a target', function (t) {
+  var createUrl = '/api/targets'
+  var data = {
+    url: 'http://example.com/3',
+    value: '0.80',
+    maxAcceptsPerDay: '8',
+    accept: {
+      geoState: { $in: ['fl'] },
+      hour: { $in: ['12'] }
+    }
+  }
+  var stream = servertest(server(), createUrl, { method: 'POST', encoding: 'json' })
+  stream.on('data', function (res) {
+    let body = res.body
+    if (!body && Buffer.isBuffer(res)) {
+      try {
+        body = JSON.parse(res.toString())
+      } catch (e) {
+        console.error('Failed to parse buffer as JSON:', res)
+      }
+    }
+    if (!body) {
+      console.error('DEBUG: No response body. Full response:', res)
+      t.fail('No response body')
+      t.end()
+      return
+    }
+    var id = body.id
+    var updateUrl = '/api/target/' + id
+    var update = { value: '0.99', url: 'http://updated.com' }
+    var updateStream = servertest(server(), updateUrl, { method: 'POST', encoding: 'json' })
+    updateStream.on('data', function (res2) {
+      let body2 = res2.body
+      if (!body2 && Buffer.isBuffer(res2)) {
+        try {
+          body2 = JSON.parse(res2.toString())
+        } catch (e) {
+          console.error('Failed to parse buffer as JSON:', res2)
+        }
+      }
+      if (!body2) {
+        console.error('DEBUG: No response body. Full response:', res2)
+        t.fail('No response body')
+        t.end()
+        return
+      }
+      t.is(body2.id, id, 'id matches after update')
+      servertest(server(), updateUrl, { method: 'GET', encoding: 'json' }, function (err, res3) {
+        t.falsy(err, 'no error')
+        t.is(res3.body.value, '0.99', 'value updated')
+        t.is(res3.body.url, 'http://updated.com', 'url updated')
+        t.end()
+      })
+    })
+    updateStream.end(JSON.stringify(update))
+  })
+  stream.end(JSON.stringify(data))
+})
